@@ -186,7 +186,7 @@ func (s *Server) executeBinaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute binary
-	result, err := s.executor.Execute(r.Context(), binary.BinaryPath, &req)
+	result, err := s.executor.Execute(r.Context(), binary.BinaryPath, &req, nil)
 	if err != nil {
 		slog.Error("Failed to execute binary", slog.String("error", err.Error()))
 		s.respondError(w, http.StatusInternalServerError, "Failed to execute binary")

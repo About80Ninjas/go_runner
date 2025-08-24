@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"go_runner/internal/config"
@@ -32,7 +33,7 @@ func NewExecutor(binaryPath string, config config.ExecutorConfig) *Executor {
 }
 
 // Execute runs a binary with the given parameters
-func (e *Executor) Execute(ctx context.Context, binaryPath string, req *models.ExecutionRequest) (*models.ExecutionResult, error) {
+func (e *Executor) Execute(ctx context.Context, binaryPath string, req *models.ExecutionRequest, started chan<- string) (*models.ExecutionResult, error) {
 	// Create execution result
 	result := &models.ExecutionResult{
 		ID:        generateID(),
@@ -73,6 +74,11 @@ func (e *Executor) Execute(ctx context.Context, binaryPath string, req *models.E
 	e.runningJobs[result.ID] = cmd
 	e.mu.Unlock()
 
+	// Send the execution ID to the started channel if it's not nil
+	if started != nil {
+		started <- result.ID
+	}
+
 	defer func() {
 		e.mu.Lock()
 		delete(e.runningJobs, result.ID)
@@ -92,8 +98,13 @@ func (e *Executor) Execute(ctx context.Context, binaryPath string, req *models.E
 			result.Status = "timeout"
 			result.ExitCode = -1
 		} else if exitErr, ok := err.(*exec.ExitError); ok {
-			result.Status = "failed"
-			result.ExitCode = exitErr.ExitCode()
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+				result.Status = "failed"
+				result.ExitCode = -1
+			} else {
+				result.Status = "failed"
+				result.ExitCode = exitErr.ExitCode()
+			}
 		} else {
 			result.Status = "failed"
 			result.ExitCode = -1
