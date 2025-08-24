@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -154,6 +155,12 @@ func (fs *FileStorage) UpdateBinary(binary *models.Binary) error {
 func (fs *FileStorage) DeleteBinary(id string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+
+	// Validate id is a proper UUID (as expected by creation logic)
+	var validUUID = regexp.MustCompile(`^[a-fA-F0-9\-]{36}$`)
+	if !validUUID.MatchString(id) {
+		return errors.New("invalid binary id")
+	}
 
 	if _, exists := fs.binaries[id]; !exists {
 		return ErrBinaryNotFound
