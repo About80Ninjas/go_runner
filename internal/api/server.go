@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"go_runner/internal/config"
-	"go_runner/internal/executor"
-	"go_runner/internal/repository"
+	"go_runner/internal/models"
 	"go_runner/internal/storage"
 
 	"github.com/go-chi/chi/v5"
@@ -17,18 +16,31 @@ import (
 	"github.com/go-chi/cors"
 )
 
+// GitManager interface for Git operations
+type GitManager interface {
+	CloneOrUpdate(repoURL, branch, targetPath string) error
+	GetCommitHash(repoPath string) (string, error)
+	BuildGoBinary(repoPath, buildPath, outputPath string) error
+}
+
+// Executor interface for binary execution
+type Executor interface {
+	Execute(ctx context.Context, binaryPath string, req *models.ExecutionRequest, started chan<- string) (*models.ExecutionResult, error)
+	StopExecution(executionID string) error
+}
+
 // Server represents the API server
 type Server struct {
 	config   config.ServerConfig
 	router   *chi.Mux
 	server   *http.Server
 	storage  storage.Storage
-	git      *repository.GitManager
-	executor *executor.Executor
+	git      GitManager
+	executor Executor
 }
 
 // NewServer creates a new API server
-func NewServer(cfg config.ServerConfig, storage storage.Storage, git *repository.GitManager, exec *executor.Executor) *Server {
+func NewServer(cfg config.ServerConfig, storage storage.Storage, git GitManager, exec Executor) *Server {
 	s := &Server{
 		config:   cfg,
 		storage:  storage,
