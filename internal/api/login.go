@@ -4,6 +4,7 @@ package api
 import (
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -54,8 +55,15 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		"/dashboard": {},
 	}
 	next = strings.ReplaceAll(next, "\\", "/")
-	if _, ok := allowedNext[next]; !ok {
+	u, err := url.Parse(next)
+	if err != nil || u.Hostname() != "" || u.Path == "" {
+		// fallback if next is malformed or external
 		next = "/admin"
+	} else if _, ok := allowedNext[u.Path]; !ok {
+		next = "/admin"
+	} else {
+		// use normalized and path-only form
+		next = u.Path
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
