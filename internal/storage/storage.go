@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,9 +15,21 @@ import (
 )
 
 var (
-	ErrBinaryNotFound = errors.New("binary not found")
-	ErrStorageInit    = errors.New("storage initialization failed")
+	ErrBinaryNotFound  = errors.New("binary not found")
+	ErrStorageInit     = errors.New("storage initialization failed")
+	ErrInvalidID       = errors.New("invalid ID supplied")
 )
+
+// isValidID checks that the id does not contain path separators or directory traversal
+func isValidID(id string) bool {
+	if len(id) == 0 ||
+		strings.Contains(id, "/") ||
+		strings.Contains(id, "\\") ||
+		strings.Contains(id, "..") {
+		return false
+	}
+	return true
+}
 
 // Storage interface for binary management
 type Storage interface {
@@ -150,6 +163,9 @@ func (fs *FileStorage) UpdateBinary(binary *models.Binary) error {
 	return fs.saveMetadata()
 }
 
+	if !isValidID(id) {
+		return ErrInvalidID
+	}
 // DeleteBinary deletes a binary
 func (fs *FileStorage) DeleteBinary(id string) error {
 	fs.mu.Lock()
@@ -168,6 +184,9 @@ func (fs *FileStorage) DeleteBinary(id string) error {
 	return fs.saveMetadata()
 }
 
+	if !isValidID(result.ID) {
+		return ErrInvalidID
+	}
 // SaveExecution saves an execution result
 func (fs *FileStorage) SaveExecution(result *models.ExecutionResult) error {
 	fs.mu.Lock()
@@ -185,6 +204,9 @@ func (fs *FileStorage) SaveExecution(result *models.ExecutionResult) error {
 	return os.WriteFile(execPath, data, 0644)
 }
 
+	if !isValidID(id) {
+		return nil, ErrInvalidID
+	}
 // GetExecution retrieves an execution result
 func (fs *FileStorage) GetExecution(id string) (*models.ExecutionResult, error) {
 	fs.mu.RLock()
