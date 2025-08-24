@@ -49,10 +49,13 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// ✅ safe redirect
 	next := r.FormValue("next")
-	// sanitize and validate 'next'
+	// Define list of allowed redirect paths
+	allowedNext := map[string]struct{}{
+		"/admin": {},
+		"/dashboard": {},
+	}
 	next = strings.ReplaceAll(next, "\\", "/")
-	u, err := url.Parse(next)
-	if next == "" || err != nil || u.Hostname() != "" || !strings.HasPrefix(u.Path, "/") {
+	if _, ok := allowedNext[next]; !ok {
 		next = "/admin"
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
