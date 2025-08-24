@@ -5,6 +5,8 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"strings"
+	"net/url"
 	"time"
 )
 
@@ -47,7 +49,10 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// ✅ safe redirect
 	next := r.FormValue("next")
-	if next == "" {
+	// sanitize and validate 'next'
+	next = strings.ReplaceAll(next, "\\", "/")
+	u, err := url.Parse(next)
+	if next == "" || err != nil || u.Hostname() != "" || !strings.HasPrefix(u.Path, "/") {
 		next = "/admin"
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
