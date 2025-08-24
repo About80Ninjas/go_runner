@@ -1,0 +1,21 @@
+# docker-compose.yml
+services:
+  binary-executor:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - STORAGE_PATH=/app/data
+      - REPO_PATH=/app/data/repos
+      - BINARY_PATH=/app/data/binaries
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-change-me-in-production}
+      - API_KEYS_ENABLED=true
+      - EXECUTOR_MAX_CONCURRENT=10
+      - EXECUTOR_TIMEOUT=5m
+      - EXECUTOR_MAX_MEMORY_MB=512
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Optional: for Docker-in-Docker execution
+    restart: unless-stopped
