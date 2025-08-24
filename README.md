@@ -105,6 +105,31 @@ For development, you can use the provided `Makefile` for common tasks.
 -   `make docker-build`: Build the Docker image.
 -   `make docker-run`: Run the application in a Docker container.
 
+## 🧪 Testing
+
+The project uses Go's built-in testing framework. Unit tests are co-located with the code they test.
+
+### Coverage Report
+
+Overall Test Coverage: **39.5%**
+
+| Package                     | Coverage |
+| :-------------------------- | :------- |
+| `go_runner/cmd/go_runner`   | 0.0%     |
+| `go_runner/internal/api`    | 68.7%    |
+| `go_runner/internal/config` | 0.0%     |
+| `go_runner/internal/executor` | 84.9%    |
+| `go_runner/internal/models` | No Test Files |
+| `go_runner/internal/repository` | 0.0%     |
+| `go_runner/internal/storage` | 0.0%     |
+
+To run tests and generate a coverage report:
+
+```bash
+go test -cover ./...
+go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
+```
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue.
