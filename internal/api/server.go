@@ -39,7 +39,6 @@ type Server struct {
 	executor Executor
 }
 
-// NewServer creates a new API server
 func NewServer(cfg config.ServerConfig, storage storage.Storage, git GitManager, exec Executor) *Server {
 	s := &Server{
 		config:   cfg,
@@ -47,7 +46,6 @@ func NewServer(cfg config.ServerConfig, storage storage.Storage, git GitManager,
 		git:      git,
 		executor: exec,
 	}
-
 	s.setupRoutes()
 	return s
 }
@@ -72,14 +70,19 @@ func (s *Server) setupRoutes() {
 		MaxAge:           300,
 	}))
 
-	// Routes
+	// Auth pages
+	r.Get("/login", s.loginPageHandler)
+	r.Post("/login", s.loginHandler)
+	r.Post("/logout", s.logoutHandler)
+
+	// API
 	r.Route("/api/v1", func(r chi.Router) {
-		// Public endpoints
+		// Public
 		r.Get("/health", s.healthHandler)
 		r.Get("/docs", s.swaggerUIHandler)
 		r.Get("/openapi.json", s.openAPIHandler)
 
-		// Binary management endpoints (requires auth)
+		// Admin-protected
 		r.Route("/binaries", func(r chi.Router) {
 			r.Use(s.authMiddleware)
 			r.Get("/", s.listBinariesHandler)
@@ -90,7 +93,7 @@ func (s *Server) setupRoutes() {
 			r.Post("/{id}/build", s.buildBinaryHandler)
 		})
 
-		// Execution endpoints
+		// API key–protected
 		r.Route("/execute", func(r chi.Router) {
 			r.Use(s.apiKeyMiddleware)
 			r.Post("/", s.executeBinaryHandler)
@@ -99,14 +102,14 @@ func (s *Server) setupRoutes() {
 		})
 	})
 
-	// Admin UI
+	// Admin UI (HTML) — redirect to /login if not authenticated
 	r.Route("/admin", func(r chi.Router) {
-		r.Use(s.authMiddleware)
+		r.Use(s.requireAdminUI)
 		r.Get("/*", s.adminUIHandler)
 	})
 
-	// Serve static files
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static"))))
+	// Static (if you later move assets)
+	// r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static"))))
 
 	s.router = r
 	s.server = &http.Server{

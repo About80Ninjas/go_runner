@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Executor Admin</title>
+    <style>
+        body { font-family: sans-serif; background: #f5f5f5; }
+        .header { background: #2c3e50; color: white; padding: 1rem; display:flex; justify-content:space-between; }
+        .btn { padding: 0.5rem 1rem; border-radius: 4px; border:none; cursor:pointer; }
+        .btn-outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4) }
+    </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Binary Executor Admin Panel</h1>
+    <form method="POST" action="/logout">
+      <button class="btn btn-outline" type="submit">Log out</button>
+    </form>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Add New Binary</h2>
+      <form id="addBinaryForm">
+        <input type="text" name="name" placeholder="Name" required><br>
+        <input type="text" name="description" placeholder="Description"><br>
+        <input type="url" name="repo_url" placeholder="https://github.com/user/repo.git" required><br>
+        <input type="text" name="branch" value="main" required><br>
+        <input type="text" name="build_path" placeholder="./cmd/app" value="."><br>
+        <button type="submit" class="btn">Add Binary</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Managed Binaries</h2>
+      <div id="binaryList"></div>
+    </div>
+  </div>
+
+<script>
+const API_BASE = '/api/v1';
+
+async function fetchJSON(url, opts={}) {
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(await res.text() || res.statusText);
+  return res.json();
+}
+
+async function fetchBinaries() {
+  try {
+    const binaries = await fetchJSON(API_BASE + '/binaries');
+    displayBinaries(binaries);
+  } catch (err) {
+    if (/Unauthorized/i.test(String(err))) {
+      window.location.href = '/login?next=/admin';
+    }
+  }
+}
+
+function displayBinaries(binaries) {
+  const list = document.getElementById('binaryList');
+  if (!binaries || binaries.length === 0) {
+    list.innerHTML = '<p>No binaries configured</p>';
+    return;
+  }
+  list.innerHTML = binaries.map(b =>
+    `<div>
+      <strong>${b.name}</strong> (${b.status})
+      <button onclick="buildBinary('${b.id}')">Build</button>
+      <button onclick="deleteBinary('${b.id}')">Delete</button>
+    </div>`
+  ).join('');
+}
+
+async function buildBinary(id) {
+  await fetch(API_BASE + '/binaries/' + id + '/build', { method: 'POST' });
+  fetchBinaries();
+}
+
+async function deleteBinary(id) {
+  if (!confirm('Delete this binary?')) return;
+  await fetch(API_BASE + '/binaries/' + id, { method: 'DELETE' });
+  fetchBinaries();
+}
+
+document.getElementById('addBinaryForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData);
+  await fetch(API_BASE + '/binaries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  e.target.reset();
+  fetchBinaries();
+});
+
+fetchBinaries();
+setInterval(fetchBinaries, 5000);
+</script>
+</body>
+</html>
