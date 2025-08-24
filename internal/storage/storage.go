@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,9 +16,21 @@ import (
 )
 
 var (
-	ErrBinaryNotFound = errors.New("binary not found")
-	ErrStorageInit    = errors.New("storage initialization failed")
+	ErrBinaryNotFound  = errors.New("binary not found")
+	ErrStorageInit     = errors.New("storage initialization failed")
+	ErrInvalidID       = errors.New("invalid ID supplied")
 )
+
+// isValidID checks that the id does not contain path separators or directory traversal
+func isValidID(id string) bool {
+	if len(id) == 0 ||
+		strings.Contains(id, "/") ||
+		strings.Contains(id, "\\") ||
+		strings.Contains(id, "..") {
+		return false
+	}
+	return true
+}
 
 // Storage interface for binary management
 type Storage interface {
@@ -156,8 +169,15 @@ func (fs *FileStorage) DeleteBinary(id string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	if !isValidID(id) {
+		return ErrInvalidID
+	}
+
 	// Validate id is a proper UUID (as expected by creation logic)
-	var validUUID = regexp.MustCompile(`^[a-fA-F0-9\-]{36}$`)
+	var validUUID = regexp.MustCompile(`^[a-fA-F0-9\-]{36}// internal/storage/storage.go
+package storage
+
+)
 	if !validUUID.MatchString(id) {
 		return errors.New("invalid binary id")
 	}
@@ -180,6 +200,10 @@ func (fs *FileStorage) SaveExecution(result *models.ExecutionResult) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	if !isValidID(result.ID) {
+		return ErrInvalidID
+	}
+
 	fs.executions[result.ID] = result
 
 	// Also save to file for persistence
@@ -196,6 +220,10 @@ func (fs *FileStorage) SaveExecution(result *models.ExecutionResult) error {
 func (fs *FileStorage) GetExecution(id string) (*models.ExecutionResult, error) {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
+
+	if !isValidID(id) {
+		return nil, ErrInvalidID
+	}
 
 	if result, exists := fs.executions[id]; exists {
 		return result, nil
