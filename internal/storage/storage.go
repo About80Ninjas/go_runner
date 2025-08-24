@@ -133,7 +133,8 @@ func (fs *FileStorage) GetBinary(id string) (*models.Binary, error) {
 		return nil, ErrBinaryNotFound
 	}
 
-	return binary, nil
+	return binary,
+			nil
 }
 
 // ListBinaries returns all binaries
@@ -174,10 +175,7 @@ func (fs *FileStorage) DeleteBinary(id string) error {
 	}
 
 	// Validate id is a proper UUID (as expected by creation logic)
-	var validUUID = regexp.MustCompile(`^[a-fA-F0-9\-]{36}// internal/storage/storage.go
-package storage
-
-)
+	var validUUID = regexp.MustCompile(`^[a-fA-F0-9\\-]{36}$`)
 	if !validUUID.MatchString(id) {
 		return errors.New("invalid binary id")
 	}

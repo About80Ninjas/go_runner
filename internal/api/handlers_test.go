@@ -111,14 +111,42 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, "ok", response["status"])
 }
 
+// getAdminCookie simulates a login and returns the admin_token cookie
+func getAdminCookie(t *testing.T, server *Server) *http.Cookie {
+	// Set a temporary ADMIN_TOKEN for the test
+	t.Setenv("ADMIN_TOKEN", "test-admin-token")
+
+	// Simulate login request
+	form := bytes.NewBufferString("token=test-admin-token")
+	req, _ := http.NewRequest("POST", "/login", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code) // Should redirect after successful login
+
+	// Find the admin_token cookie
+	for _, cookie := range rr.Result().Cookies() {
+		if cookie.Name == "admin_token" {
+			return cookie
+		}
+	}
+	t.Fatal("admin_token cookie not found after login")
+	return nil
+}
+
 func TestListBinariesHandler(t *testing.T) {
 	mockStorage := new(MockStorage)
 	server := NewServer(config.ServerConfig{}, mockStorage, nil, nil)
+
+	// Get admin cookie
+	adminCookie := getAdminCookie(t, server)
 
 	binaries := []*models.Binary{{ID: "1", Name: "test"}}
 	mockStorage.On("ListBinaries").Return(binaries, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/binaries", nil)
+	req.AddCookie(adminCookie) // Add the admin cookie to the request
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
 
@@ -131,11 +159,14 @@ func TestCreateBinaryHandler(t *testing.T) {
 	mockStorage := new(MockStorage)
 	server := NewServer(config.ServerConfig{}, mockStorage, nil, nil)
 
+	adminCookie := getAdminCookie(t, server)
+
 	binary := &models.Binary{Name: "test"}
 	mockStorage.On("SaveBinary", mock.AnythingOfType("*models.Binary")).Return(nil)
 
 	body, _ := json.Marshal(binary)
 	req, _ := http.NewRequest("POST", "/api/v1/binaries", bytes.NewBuffer(body))
+	req.AddCookie(adminCookie)
 	rr := httptest.NewRecorder()
 	server.router.ServeHTTP(rr, req)
 
@@ -148,10 +179,13 @@ func TestGetBinaryHandler(t *testing.T) {
 	mockStorage := new(MockStorage)
 	server := NewServer(config.ServerConfig{}, mockStorage, nil, nil)
 
+	adminCookie := getAdminCookie(t, server)
+
 	binary := &models.Binary{ID: "1", Name: "test"}
 	mockStorage.On("GetBinary", "1").Return(binary, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/binaries/1", nil)
+	req.AddCookie(adminCookie)
 	rr := httptest.NewRecorder()
 
 	server.router.ServeHTTP(rr, req)
@@ -165,9 +199,12 @@ func TestGetBinaryHandler_NotFound(t *testing.T) {
 	mockStorage := new(MockStorage)
 	server := NewServer(config.ServerConfig{}, mockStorage, nil, nil)
 
+	adminCookie := getAdminCookie(t, server)
+
 	mockStorage.On("GetBinary", "nonexistent").Return(&models.Binary{}, storage.ErrBinaryNotFound)
 
 	req, _ := http.NewRequest("GET", "/api/v1/binaries/nonexistent", nil)
+	req.AddCookie(adminCookie)
 	rr := httptest.NewRecorder()
 
 	server.router.ServeHTTP(rr, req)
@@ -181,11 +218,14 @@ func TestUpdateBinaryHandler(t *testing.T) {
 	mockStorage := new(MockStorage)
 	server := NewServer(config.ServerConfig{}, mockStorage, nil, nil)
 
+	adminCookie := getAdminCookie(t, server)
+
 	binary := &models.Binary{ID: "1", Name: "updated"}
 	mockStorage.On("UpdateBinary", mock.AnythingOfType("*models.Binary")).Return(nil)
 
 	body, _ := json.Marshal(binary)
 	req, _ := http.NewRequest("PUT", "/api/v1/binaries/1", bytes.NewBuffer(body))
+	req.AddCookie(adminCookie)
 	rr := httptest.NewRecorder()
 
 	server.router.ServeHTTP(rr, req)
@@ -198,9 +238,12 @@ func TestDeleteBinaryHandler(t *testing.T) {
 	mockStorage := new(MockStorage)
 	server := NewServer(config.ServerConfig{}, mockStorage, nil, nil)
 
+	adminCookie := getAdminCookie(t, server)
+
 	mockStorage.On("DeleteBinary", "1").Return(nil)
 
 	req, _ := http.NewRequest("DELETE", "/api/v1/binaries/1", nil)
+	req.AddCookie(adminCookie)
 	rr := httptest.NewRecorder()
 
 	server.router.ServeHTTP(rr, req)
@@ -213,6 +256,8 @@ func TestBuildBinaryHandler(t *testing.T) {
 	mockStorage := new(MockStorage)
 	mockGit := new(MockGitManager)
 	server := NewServer(config.ServerConfig{}, mockStorage, mockGit, nil)
+
+	adminCookie := getAdminCookie(t, server)
 
 	binary := &models.Binary{
 		ID:        "1",
@@ -228,6 +273,7 @@ func TestBuildBinaryHandler(t *testing.T) {
 	mockGit.On("BuildGoBinary", mock.AnythingOfType("string"), binary.BuildPath, mock.AnythingOfType("string")).Return(nil).Once()
 
 	req, _ := http.NewRequest("POST", "/api/v1/binaries/1/build", nil)
+	req.AddCookie(adminCookie)
 	rr := httptest.NewRecorder()
 
 	server.router.ServeHTTP(rr, req)
